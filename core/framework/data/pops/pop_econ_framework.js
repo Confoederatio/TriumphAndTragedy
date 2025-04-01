@@ -707,8 +707,7 @@ module.exports = {
                     if (pop_obj.goods_buy_order)
                       for (var x = 0; x < pop_obj.goods_buy_order.length; x++) {
                         var local_buy_order = pop_obj.goods_buy_order[x];
-
-                        var local_allowance = local_wealth_pool.income*local_buy_order.allowance;
+                        
                         var local_inventory_consumption = local_wealth_pool.inventory_consumption[local_buy_order.category];
                         var local_market_good = main.market[local_buy_order.good_type];
                         var local_received_goods = local_wealth_pool.received_goods[local_buy_order.category];
