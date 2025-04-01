@@ -98,6 +98,20 @@ module.exports = {
         return true;
       }
 
+      //[Mass Build]
+      if (input == "mass build") {
+        initialiseMassBuild(user_id);
+
+        return true;
+      }
+
+      //[Mass Demolish]
+      if (input == "mass demolish") {
+        initialiseMassDemolish(user_id);
+
+        return true;
+      }
+
       //[Production]
       if (["production", "resource production", "view production"].includes(input)) {
         game_obj.page = "view_production";

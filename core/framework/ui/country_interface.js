@@ -20,6 +20,8 @@ module.exports = {
     global_commands_string.push(`- **[Map/Country/Budget/Economy/Technology ..]** - Switch between tabs.`);
     global_commands_string.push("");
     global_commands_string.push(`- **[Build]** - Opens the build menu.`);
+    global_commands_string.push(` - **[Mass Build]** - Builds en masse.`);
+    global_commands_string.push(` - **[Mass Demolish]** - Demolishes en masse.`);
     global_commands_string.push(`- **[Inventory]** - Opens your national stockpile.`);
     global_commands_string.push(`- **[Recruit]** - Recruits units. Can also be accessed through **[Train Units]**.`);
     global_commands_string.push(`- **[Set Tax]** - Adjusts your tax rate.`);

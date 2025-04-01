@@ -149,5 +149,49 @@ module.exports = {
     } else {
       printError(game_obj.id, `You must have a registered nation before being able to construct any buildings in your cities!`);
     }
+  },
+
+  initialiseMassBuild: function (arg0_user) {
+    //Convert from parameters
+    var user_id = arg0_user;
+
+    //Declare local instance variables
+    var actual_id = main.global.user_map[user_id];
+    var game_obj = getGameObject(user_id);
+    var usr = main.users[actual_id];
+
+    //Initialise visual prompt
+    visualPrompt(game_obj.alert_embed, user_id, {
+      title: `Mass Build:`,
+      prompts: [
+        [`How many buildings of this type would you like to mass construct?`, "number", { min: 1 }],
+        [`What type of building would you like to construct?\n\nType **[View Buildings]** for a full list of buildings you can construct.`, "string"],
+        [`Which provinces would you like to construct these buildings in? Separate each province with a space (e.g. '4701 4702 4705').`, "string"]
+      ]
+    },
+    function (arg) {
+      module.exports.massBuild(user_id, arg[2].trim().split(" "), arg[0], arg[1])
+    },
+    function (arg) {
+      switch (arg) {
+        case "view buildings":
+          printBuildList(user_id);
+          return true;
+
+          break;
+      }
+    });
+  },
+
+  massBuild: function (arg0_user, arg1_provinces, arg2_amount, arg3_building_name) {
+    //Convert from parameters
+    var user_id = arg0_user;
+    var provinces = getList(arg1_provinces);
+    var amount = parseInt(arg2_amount);
+    var building_name = arg3_building_name;
+
+    //Iterate over provinces and call build()
+    for (var i = 0; i < provinces.length; i++)
+      module.exports.build(user_id, provinces[i], amount, building_name);
   }
 };

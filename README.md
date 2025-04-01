@@ -1,17 +1,18 @@
 # Triumph & Tragedy
 
-![](https://media.discordapp.net/attachments/829862963485474827/936005762600296458/civilization_mobile_banner_2.png)
+![](https://i.postimg.cc/KY7XcRpG/civilization-mobile-banner-2.png)
 
-![](https://media.discordapp.net/attachments/829862963485474827/962095713225957407/unknown.png)
+![](https://i.postimg.cc/DZfN25b6/triumph-and-tragedy-secondary-banner.png)
 
+<div align = "center">-</div>
+<br>
+<img src = "https://i.postimg.cc/hjTYphY2/ctd-light-logo.png" height = "64">
 
 [![Join our community!](https://img.shields.io/discord/548994743925997570?label=Discord&style=for-the-badge)](https://discord.gg/89kQY2KFQz) ![](https://img.shields.io/github/languages/code-size/Australis-0/TriumphAndTragedy?style=for-the-badge) ![](https://img.shields.io/github/downloads/Australis-0/TriumphAndTragedy/total?style=for-the-badge)
 
 > We're looking for programmers! If you know JS/JSON, please get in touch!
 
 ## About
-
-⚠️ Please note that we're currently in the process of overhauling this game. Please download from the __Releases__ section instead.
 
 **Triumph & Tragedy** is a turn-based grand-strategy Discord bot game featuring fully automated economic, diplomatic, combat, and political mechanics. It comes with a variety of frameworks as well as a revolutionary new UI system that utilises private channels for a more seamless in-game experience.
 
