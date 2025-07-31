@@ -35,7 +35,7 @@ config.buildings.petrochemicals = {
     },
     produces: {
       production_choice_one: {
-        name: "Metahnol Carbonylation",
+        name: "Methanol Carbonylation",
         acetic_acid: 4
       },
       production_choice_two: {
