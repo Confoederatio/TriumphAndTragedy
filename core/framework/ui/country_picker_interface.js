@@ -143,8 +143,6 @@ module.exports = {
               case "exit game":
               case "quit":
               case "quit game":
-                clearGame(game_obj.id);
-
                 break;
               default:
                 printError(game_obj.id, `You must specify a valid option!\n\nEither **[Pick an Existing Country]** to play as, or **[Create A New Country]**.`);

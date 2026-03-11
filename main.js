@@ -4,16 +4,18 @@ global.Cluster = require("cluster");
 global._ = require("underscore");
 global.bn_graph = require("ngraph.graph");
 global.bn_path = require("ngraph.path");
-global.Canvas = require("canvas");
+global.Canvas = require("@napi-rs/canvas");
 global.diacriticless = require("diacriticless");
 global.Discord = require("discord.js");
 global.fs = require("fs");
 global.HTML = require("node-html-parser");
+global.JSDOM = require("jsdom");
 global.JSONPack = require("jsonpack");
 global.opus = require("opusscript");
 global.OS = require("os");
 global.path = require("path");
 global.SVG = require("convert-svg-to-png");
+global.svg2img = require("svg2img");
 global.voice = require("@discordjs/voice");
 global.WorkerThreads = require("worker_threads");
 
@@ -88,16 +90,14 @@ if (Cluster.isMaster) {
     if (i % 2 == 0) {
       //Pass global down to local_worker
       local_worker.send({
-        type: 2,
-        ram_size: 1024 //1GB max RAM
+        type: 2
       });
 
       thread_two_workers.push(local_worker);
     } else {
       //Pass global down to local_worker
       local_worker.send({
-        type: 3,
-        ram_size: 1024 //1GB max RAM
+        type: 3
       });
 
       thread_three_workers.push(local_worker);

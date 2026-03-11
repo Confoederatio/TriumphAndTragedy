@@ -95,13 +95,14 @@ module.exports = {
     //Map viewer and renderer files
     FileManager.import("./framework/map/atlas_renderer");
     FileManager.import("./framework/map/map_renderer");
+    FileManager.import("./framework/map/new_map_renderer");
     FileManager.import("./framework/map/province_renderer");
 
     //Multicore handling
     FileManager.import("./multicore/multicore_framework.js");
-    FileManager.import("./multicore/thread_one_handler.js");
-    FileManager.import("./multicore/thread_two_handler.js");
-    FileManager.import("./multicore/thread_three_handler.js");
+    FileManager.import("./multicore/thread_1_handler.js");
+    FileManager.import("./multicore/thread_2_handler.js");
+    FileManager.import("./multicore/thread_3_handler.js");
 
     //Page handler files
     FileManager.import("./framework/ui/page_handler/debug_page_handler/debug");

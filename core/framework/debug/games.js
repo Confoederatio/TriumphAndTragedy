@@ -5,6 +5,10 @@ module.exports = {
     //Return statement
     return [true, `Attempted to clear bad games and interfaces!`];
   },
+  
+  debugResetGame: function () { //[WIP] - Finish function body
+    
+  },
 
   debugResetGames: function () {
     clearGames();

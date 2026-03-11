@@ -1154,7 +1154,7 @@ module.exports = {
     } else {
       if (
         (has_liquidity && has_deficit && has_full_employment_profit) ||
-        (has_liquidity && employment_level < config.defines.economy.min_hire_threshold)
+        (has_liquidity && employment_level < 0.05)
       ) {
         open_positions = minimum_hiring_liquidity/unzero(wage_obj.wage, 1);
       } else if (has_liquidity && !has_deficit) {
@@ -1165,16 +1165,14 @@ module.exports = {
     //Cap open_positions to config_obj.upper_bound_manpower
     if (config_obj.upper_bound_manpower)
       open_positions = Math.min(open_positions, wage_obj.remaining_positions*config.defines.economy.max_hire_percentage);
-    open_positions = Math.max(open_positions, 0); //open_positions should at least be 0
 
     //Return statement
     return (!options.return_object) ? open_positions : {
       hiring_positions: open_positions,
 
-      employment_level: employment_level,
       has_deficit: has_deficit,
-      has_full_employment_profit: has_full_employment_profit,
       has_liquidity: has_liquidity,
+      has_full_employment_profit: has_full_employment_profit,
       minimum_hiring_liquidity: minimum_hiring_liquidity,
 
       full_employment_profit: wage_obj.full_employment_profit,
@@ -1596,27 +1594,17 @@ module.exports = {
     var all_good_keys = Object.keys(goods_obj);
 
     for (var i = 0; i < all_good_keys.length; i++) {
-      var has_worth;
-      var local_good = lookup.all_goods[all_good_keys[i]];
       var local_market_good = main.market[all_good_keys[i]];
       var local_value = goods_obj[all_good_keys[i]];
 
-      if (local_value >= 0) {
-        if (local_good)
-          if (local_good.worth) {
-            current_revenue += local_value*returnSafeNumber(local_good.worth);
-            has_worth = true;
-          }
-
-        if (!has_worth)
+      if (local_value >= 0)
         if (local_market_good) {
-            current_revenue += local_value*local_market_good.buy_price;
-          } else if (all_good_keys[i] == "actions") {
-            current_revenue += local_value*config.defines.economy.money_per_action;
-          } else if (all_good_keys[i] == "money") {
-            current_revenue += local_value;
-          }
-      }
+          current_revenue += local_value*local_market_good.buy_price;
+        } else if (all_good_keys[i] == "actions") {
+          current_revenue += local_value*config.defines.economy.money_per_action;
+        } else if (all_good_keys[i] == "money") {
+          current_revenue += local_value;
+        }
     }
 
     //Return statement
@@ -2286,149 +2274,132 @@ module.exports = {
     //Convert from parameters
     var user_id = arg0_user;
     var good_key = arg1_good;
-    var used_goods = (arg2_used_goods) ? arg2_used_goods : new Set(); //Set for O(1) lookups instead of Array.includes()
+    var used_goods = (arg2_used_goods) ? arg2_used_goods : []; //Used for tracking which goods have already been appended to avoid infinite loops if they exist
     var depth = (arg3_depth) ? arg3_depth : 1;
-    
+
     //Declare local instance variables
     var actual_id = main.global.user_map[user_id];
     var all_building_keys = Object.keys(lookup.all_buildings);
     var capital_obj;
     var production_chain_obj = {};
-    
+
     if (user_id != "") capital_obj = getCapital(user_id);
     if (!capital_obj) capital_obj = main.provinces["1"];
-    
+
     //Iterate over all buildings
-    var dependent_goods_set = new Set(); //Set for O(1) has/add instead of Array.includes/push
-    
+    var dependent_goods = [];
+
     //Initialise 1st layer good_key object
     if (!production_chain_obj[good_key]) production_chain_obj[good_key] = {};
-    
+
     //Append buildings and relevant production choices to production_chain_obj
     for (var i = 0; i < all_building_keys.length; i++) {
-      var building_key = all_building_keys[i];
-      var building_obj = lookup.all_buildings[building_key];
-      
-      //Skip buildings without produces early
-      if (!building_obj.produces) continue;
-      
+      var building_obj = lookup.all_buildings[all_building_keys[i]];
       var local_production_obj = {};
-      var all_production_keys = Object.keys(building_obj.produces);
-      var base_has_good = false;
-      var valid_production_choices = [];
-      
-      for (var x = 0; x < all_production_keys.length; x++) {
-        var prod_key = all_production_keys[x];
-        var local_subobj = building_obj.produces[prod_key];
-        
-        if (prod_key.startsWith("production_choice_")) {
-          //Production choice handling
-          if (local_subobj[good_key] > 0)
-            valid_production_choices.push(
-              prod_key.slice(18) //.slice(18) is faster than .replace("production_choice_", "") - "production_choice_".length === 18
-            );
-        } else {
-          if (prod_key === good_key && local_subobj > 0)
-            base_has_good = true;
+
+      //Check if building_obj.produces has good_key, if so append an object with all production methods
+      if (building_obj.produces) {
+        var all_production_keys = Object.keys(building_obj.produces);
+        var base_has_good = false;
+        var valid_production_choices = [];
+
+        for (var x = 0; x < all_production_keys.length; x++) {
+          var local_subobj = building_obj.produces[all_production_keys[x]];
+
+          if (all_production_keys[x].startsWith("production_choice_")) {
+            //Production choice handling
+            if (local_subobj[good_key])
+              if (local_subobj[good_key] > 0)
+                valid_production_choices.push(all_production_keys[x].replace("production_choice_", ""));
+          } else {
+            if (all_production_keys[x] == good_key)
+              if (local_subobj > 0)
+                base_has_good = true;
+          }
+        }
+
+        if (base_has_good || valid_production_choices.length > 0) {
+          //Append base if applicable
+          if (base_has_good)
+            local_production_obj.base = getProductionChoiceOutput({
+              province_id: capital_obj.id,
+              building_type: all_building_keys[i]
+            });
+
+          //Iterate over valid_production_choices and use getProductionChoiceOutput() with capital_obj to get proper produces output
+          for (var x = 0; x < valid_production_choices.length; x++) {
+            var local_production_choice_obj = getProductionChoiceOutput({
+              province_id: capital_obj.id,
+              building_type: all_building_keys[i],
+              production_choice: valid_production_choices[x]
+            });
+
+            local_production_obj[valid_production_choices[x]] = local_production_choice_obj;
+          }
+
+          //Add local_production_obj (building production) to production_chain_obj[good_key]
+          production_chain_obj[good_key][all_building_keys[i]] = local_production_obj;
         }
       }
-      
-      if (!base_has_good && valid_production_choices.length === 0) continue;
-      
-      //Append base if applicable
-      if (base_has_good)
-        local_production_obj.base = getProductionChoiceOutput({
-          province_id: capital_obj.id,
-          building_type: building_key
-        });
-      
-      //Iterate over valid_production_choices and use getProductionChoiceOutput()
-      //with capital_obj to get proper produces output
-      for (var x = 0; x < valid_production_choices.length; x++) {
-        local_production_obj[valid_production_choices[x]] =
-          getProductionChoiceOutput({
-            province_id: capital_obj.id,
-            building_type: building_key,
-            production_choice: valid_production_choices[x]
-          });
-      }
-      
-      //Add local_production_obj (building production) to
-      //production_chain_obj[good_key]
-      production_chain_obj[good_key][building_key] = local_production_obj;
     }
-    
+
     //Fetch dependent_goods
     var good_production = production_chain_obj[good_key];
+
     var all_production_buildings = Object.keys(good_production);
-    
+
     //Iterate over all_production_buildings and all_production_choices
     for (var i = 0; i < all_production_buildings.length; i++) {
       var local_building = good_production[all_production_buildings[i]];
       var all_production_choices = Object.keys(local_building);
-      
+
       for (var x = 0; x < all_production_choices.length; x++) {
         var local_production_choice = local_building[all_production_choices[x]];
         var all_production_keys = Object.keys(local_production_choice);
-        
+
         for (var y = 0; y < all_production_keys.length; y++) {
-          var prod_key = all_production_keys[y];
-          
-          if (
-            (lookup.all_goods[prod_key] || prod_key === "money") &&
-            !dependent_goods_set.has(prod_key)
-          ) {
-            var local_good = lookup.all_goods[prod_key];
-            
-            dependent_goods_set.add(prod_key);
-            
-            //Category handling
-            if (local_good && local_good.type === "category") {
-              var all_subgoods = lookup.all_subgoods[prod_key];
-              
-              for (var z = 0; z < all_subgoods.length; z++)
-                if (!dependent_goods_set.has(all_subgoods[z]))
-                  dependent_goods_set.add(all_subgoods[z]);
+          if (lookup.all_goods[all_production_keys[y]] || all_production_keys[y] == "money")
+            if (!dependent_goods.includes(all_production_keys[y])) {
+              var local_good = lookup.all_goods[all_production_keys[y]];
+
+              dependent_goods.push(all_production_keys[y]);
+
+              //Category handling
+              if (local_good)
+                if (local_good.type == "category") {
+                  var all_subgoods = lookup.all_subgoods[all_production_keys[y]];
+
+                  for (var z = 0; z < all_subgoods.length; z++)
+                    if (!dependent_goods.includes(all_subgoods[z]))
+                      dependent_goods.push(all_subgoods[z]);
+                }
             }
-          }
         }
       }
     }
-    
-    //Convert Set to Array once for iteration
-    var dependent_goods = Array.from(dependent_goods_set);
-    
-    //Arbitrary depth braking at 10 recursions
-    if (depth + 1 < 10) {
-      //Pre-compute new_used_goods once instead of per-iteration
-      var new_used_goods = new Set(used_goods);
-      new_used_goods.add(good_key);
-      for (var i = 0; i < dependent_goods.length; i++)
-        new_used_goods.add(dependent_goods[i]);
-      
-      //Iterate over dependent_goods and recursively merge
-      for (var i = 0; i < dependent_goods.length; i++) {
-        if (
-          lookup.all_goods[dependent_goods[i]] &&
-          !used_goods.has(dependent_goods[i])
-        ) {
-          var local_production_chain =
-            module.exports.getProductionChain(
-              user_id,
-              dependent_goods[i],
-              new_used_goods,
-              depth + 1
-            );
-          
+
+    //Iterate over dependent_goods and recursively merge
+    for (var i = 0; i < dependent_goods.length; i++)
+      if (
+        lookup.all_goods[dependent_goods[i]] &&
+        !used_goods.includes(dependent_goods[i])
+      ) {
+        var new_depth = JSON.parse(JSON.stringify(depth)) + 1;
+        var new_used_goods = JSON.parse(JSON.stringify(used_goods));
+
+        //Arbitrary depth braking at 10 recursions
+        if (new_depth < 10) {
+          //Push current good to new_used_goods
+          //new_used_goods.push(good_key);
+          new_used_goods = appendArrays(new_used_goods, dependent_goods);
+
+          var local_production_chain = module.exports.getProductionChain(user_id, dependent_goods[i], new_used_goods, new_depth);
+
           //Merge local_production_chain with production_chain_obj
-          production_chain_obj = mergeObjects(
-            production_chain_obj,
-            local_production_chain
-          );
+          production_chain_obj = mergeObjects(production_chain_obj, local_production_chain);
         }
       }
-    }
-    
+
     //Return statement
     return production_chain_obj;
   },
@@ -2981,23 +2952,21 @@ module.exports = {
     var province_obj = (typeof province_id != "object") ? main.provinces[province_id] : province_id;
     var subsistence_production_obj = {};
 
-    //Fetch artisan production for province; province will only produce subsistence goods if unoccupied
-    if (province_obj.controller == province_obj.owner) {
-      if (!options.exclude_artisan_production) {
-        var artisan_amount = 0;
+    //Fetch artisan production for province
+    if (!options.exclude_artisan_production) {
+      var artisan_amount = 0;
 
-        //Iterate over all artisan_pops
-        for (var i = 0; i < lookup.artisan_pops.length; i++) {
-          subsistence_production_obj = mergeObjects(subsistence_production_obj,
-            getArtisanProduction(province_obj.id, lookup.artisan_pops[i]));
-          artisan_amount += returnSafeNumber(subsistence_obj.employment[lookup.artisan_pops[i]]);
-        }
+      //Iterate over all artisan_pops
+      for (var i = 0; i < lookup.artisan_pops.length; i++) {
+        subsistence_production_obj = mergeObjects(subsistence_production_obj,
+          getArtisanProduction(province_obj.id, lookup.artisan_pops[i]));
+        artisan_amount += returnSafeNumber(subsistence_obj.employment[lookup.artisan_pops[i]]);
       }
-
-      //+RGO Production
-      if (!options.exclude_rgo_production)
-        subsistence_production_obj = mergeObjects(subsistence_production_obj, getProvinceRGOThroughput(province_obj.id));
     }
+
+    //+RGO Production
+    if (!options.exclude_rgo_production)
+      subsistence_production_obj = mergeObjects(subsistence_production_obj, getProvinceRGOThroughput(province_obj.id));
 
     //Return statement
     return subsistence_production_obj;

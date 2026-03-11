@@ -48,38 +48,39 @@ module.exports = {
   /*
     getUsernames() - Returns a list of usernames/nicknames from a given ID
     options: {
-      return_nicknames: true/false - Whether or not to return nicknames instead of usernames. False by default
+      return_nicknames: true/false - Whether to return nicknames instead of usernames. False by default
     }
   */
   getUsernames: function (arg0_user, arg1_options) {
     //Convert from parameters
-    var user_id = arg0_user;
-    var options = (arg1_options) ? arg1_options : {};
+    let user_id = arg0_user;
+    let options = (arg1_options) ? arg1_options : {};
 
     //Declare local instance variables
-    var actual_id = main.global.user_map[user_id];
-    var all_user_keys = Object.keys(main.global.user_map);
-    var fetch_ids = [];
-    var guild_obj = returnChannel(settings.tt_category_id).guild;
-    var nicknames = [];
-    var usernames = [];
-    var usr = main.users[actual_id];
+    let actual_id = main.global.user_map[user_id];
+    let all_tt_categories = getList(settings.tt_category_id);
+    let all_user_keys = Object.keys(main.global.user_map);
+    let fetch_ids = [];
+    let guild_obj = returnChannel(all_tt_categories[0]).guild;
+    let nicknames = [];
+    let usernames = [];
+    let usr = main.users[actual_id];
 
     //Get user ID's to fetch
-    for (var i = 0; i < all_user_keys.length; i++)
-      if (main.global.user_map[all_user_keys[i]] == actual_id)
+    for (let i = 0; i < all_user_keys.length; i++)
+      if (main.global.user_map[all_user_keys[i]] === actual_id)
         fetch_ids.push(all_user_keys[i]);
 
     //Cache usernames
-    for (var i = 0; i < fetch_ids.length; i++)
+    for (let i = 0; i < fetch_ids.length; i++)
       try {
         //Username processing
-        var user_obj = client.users.cache.find(user => user.id == fetch_ids[i]);
+        let user_obj = client.users.cache.find(user => user.id === fetch_ids[i]);
         usernames.push(user_obj.username.trim());
 
         //Nickname processing
         try {
-          var member_obj = guild_obj.members.cache.find(member => member.id == fetch_ids[i]);
+          var member_obj = guild_obj.members.cache.find(member => member.id === fetch_ids[i]);
 
           if (member_obj.nickname)
             nicknames.push(member_obj.nickname.trim());

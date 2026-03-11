@@ -148,13 +148,13 @@ module.exports = {
           } catch {}
 
         //Create first embed
-        if (starting_page == 0) {
+        if (starting_page === 0) {
           ui_obj.current_emoji_type = "first_page";
           msg.edit({ embeds: [options.embed_pages[starting_page]] }).then((message) => {
             removeAllReactions(msg);
             if (options.embed_pages.length > 1) message.react("➡️");
           });
-        } else if (starting_page == options.embed_pages[options.embed_pages.length-1]) {
+        } else if (starting_page === options.embed_pages[options.embed_pages.length-1]) {
           ui_obj.current_emoji_type = "in_between";
           msg.edit({ embeds: [options.embed_pages[starting_page]] }).then((message) => {
             removeAllReactions(msg);

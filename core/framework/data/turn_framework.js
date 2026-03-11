@@ -1,3 +1,4 @@
+const {forceRenderAllMaps} = require("../map/map_renderer");
 module.exports = {
   nextBattleTick: function (arg0_new_turn) {
     //Convert from parameters
@@ -188,9 +189,7 @@ module.exports = {
 
     //Force render maps after turn processing
     if (config.defines.common.force_render_on_turn)
-      for (var i = main.tick_count % 10; i < mapmodes.length; i += 10)
-        if (mapmodes[i])
-          forceRender(mapmodes[i]);
+      forceRenderAllMaps();
   },
 
   nextGlobalTurn: function () {

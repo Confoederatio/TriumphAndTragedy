@@ -32,7 +32,13 @@ module.exports = {
       cacheSVG(map_name); //Very creative fix, I know
     }
   },
-
+  
+  /**
+   * Forcibly renders a map.
+   * @alias global.forceRender
+   * 
+   * @param {string} arg0_map_name
+   */
   forceRender: function (arg0_map_name) {
     //Convert from parameters
     var map_name = arg0_map_name;
@@ -55,320 +61,427 @@ module.exports = {
     if (!could_render)
       internalForceRender(map_name);
   },
-
-  internalCacheSVG: function (arg0_map_name, arg1_hide_province_labels) {
+  
+  forceRenderAllMaps: function () {
+    //Declare local instance variables
+    let mapmodes = config.defines.map.map_types;
+    
+    //Iterate over all global.mapmodes
+    for (let i = 0; i < mapmodes.length; i++)
+      forceRender(mapmodes[i]);
+  },
+  
+  internalCacheSVG: async function (arg0_map_name, arg1_hide_province_labels) {
     //Convert from parameters
     var map_name = arg0_map_name;
     var hide_province_labels = arg1_hide_province_labels;
-
+    
     var map_file = global[`${map_name}_file`];
-
+    
     //Declare local instance variables
-    var all_users = (main.users) ? Object.keys(main.users) : {};
+    var all_users = main.users ? Object.keys(main.users) : {};
     var label_placement = config.defines.map.map_label_placement;
     var labels = [];
-
+    
     log.info(`internalCacheSVG() called for ${map_file}!`);
-
-    var current_file_data = global[`${map_name}_parsed`].toString()
-      .replace(/><\/path>/gm, " />")
-      .trim();
-
-    fs.promises.writeFile(`./map/${map_file}`, current_file_data, (err) => {
-      console.log(err);
-    }).then(() => {
-      SVG.convertFile(`./map/${map_file}`).then((png) => {
-          //Check to make sure that map file is valid
-          if (fs.readFileSync(`./map/${map_file}`, "utf8").toString().length > 0) {
-            //Regular error trapping just in case
-            try {
-              switch (map_name) {
-                case "atlas":
-                  //Political map rendering
-                  var current_element = 0;
-                  var counter = 0;
-
-                  //Separate labels into columns
-                  for (var i = 0; i < all_users.length; i++) {
-                    var local_user = main.users[all_users[i]];
-
-                    //Only display label if user is not eliminated and has more than zero provinces
-                    if (!local_user.eliminated && local_user.provinces > 0)
-                      if (label_placement[current_element]) {
-                        if (counter == label_placement[current_element]) {
-                          counter = 0;
-                          current_element++;
-                        }
-
-                        counter++;
-                        if (labels[current_element])
-                          labels[current_element].push(all_users[i]);
-                        else
-                          labels[current_element] = [all_users[i]];
-                      }
+    
+    var current_file_data = global[`${map_name}_parsed`]
+    .toString()
+    .replace(/><\/path>/gm, " />")
+    .trim();
+    
+    try {
+      await fs.promises.writeFile(`./map/${map_file}`, current_file_data);
+      await SVG.convertFile(`./map/${map_file}`);
+      
+      //Check to make sure that map file is valid
+      if (fs.readFileSync(`./map/${map_file}`, "utf8").toString().length > 0) {
+        var canvas = Canvas.createCanvas(
+          config.defines.map.map_resolution[0],
+          config.defines.map.map_resolution[1]
+        );
+        var ctx = canvas.getContext("2d");
+        
+        switch (map_name) {
+          case "atlas":
+            var current_element = 0;
+            var counter = 0;
+            
+            for (var i = 0; i < all_users.length; i++) {
+              var local_user = main.users[all_users[i]];
+              if (!local_user.eliminated && local_user.provinces > 0)
+                if (label_placement[current_element]) {
+                  if (counter == label_placement[current_element]) {
+                    counter = 0;
+                    current_element++;
                   }
-
-                  //Initialise canvas and draw key for atlas map
-                  {
-                    var canvas = Canvas.createCanvas(config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    var ctx = canvas.getContext("2d");
-
-                    //Load map
-                    var background_layer = new Canvas.Image();
-                    var atlas_svg_layer = new Canvas.Image();
-
-                    background_layer.onload = () => ctx.drawImage(background_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    background_layer.onerror = err => { throw err; }
-
-                    background_layer.src = `./map/${config.defines.map.map_terrain}`;
-
-                    atlas_svg_layer.onload = () => ctx.drawImage(atlas_svg_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    atlas_svg_layer.onerror = err => { throw err; }
-                    atlas_svg_layer.src = `./map/atlas_map.png`;
-
-                    //Generate key
-                    ctx.font = "36px Oswald";
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillText("Nations of the World:", config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1]);
-
-                    //Generate colour key and accompanying labels
-                    ctx.strokeStyle = "#ffffff";
-
-                    for (var i = 0; i < labels.length; i++)
-                      for (var x = 0; x < labels[i].length; x++) {
-                        var local_user = main.users[labels[i][x]];
-
-                        ctx.fillStyle = RGBToHex(parseInt(local_user.colour[0]), parseInt(local_user.colour[1]), parseInt(local_user.colour[2]));
-                        ctx.fillRect(config.defines.map.map_label_coords[0] + i*320, config.defines.map.map_label_coords[1] + 15 + x*40, 36, 36);
-                        ctx.beginPath();
-                        ctx.rect(config.defines.map.map_label_coords[0] + i*320, config.defines.map.map_label_coords[1] + 15 + x*40, 36, 36);
-                        ctx.stroke();
-
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillText(truncateString(local_user.name, 15), config.defines.map.map_label_coords[0] + 50 + i*320, config.defines.map.map_label_coords[1] + 47 + x*40);
-                      }
-                  }
-
-                  break;
-                case "population":
-                  var all_provinces = Object.keys(main.provinces);
-                  var maximum_population = 0;
-
-                  //Get maximum population
-                  for (var i = 0; i < all_provinces.length; i++) {
-                    var local_province = main.provinces[all_provinces[i]];
-
-                    if (local_province.pops)
-                      maximum_population = Math.max(
-                        maximum_population, returnSafeNumber(local_province.pops.population)
-                      );
-                  }
-
-                  //Initialise canvas
-                  var canvas = Canvas.createCanvas(config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  var ctx = canvas.getContext("2d");
-
-                  //Load map
-                  var background_layer = new Canvas.Image();
-                  var population_layer = new Canvas.Image();
-
-                  background_layer.onload = () => ctx.drawImage(background_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  background_layer.onerror = err => { throw err; }
-                  background_layer.src = `./map/${config.defines.map.map_background}`;
-
-                  population_layer.onload = () => ctx.drawImage(population_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  population_layer.onerror = err => { throw err; }
-                  population_layer.src = `./map/${map_file.replace(".svg", ".png")}`;
-
-                  //Only render province labels if applicable
-                  if (!hide_province_labels) {
-                    var province_id_layer = new Canvas.Image();
-
-                    province_id_layer.onload = () => ctx.drawImage(province_id_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    province_id_layer.onerror = err => { throw err; }
-                    province_id_layer.src = `./map/${config.defines.map.map_overlay}`;
-                  }
-
-                  //Population rendering; render linear scale
-                  ctx.font = "36px Oswald";
-                  ctx.fillStyle = "#ffffff";
-                  ctx.fillText("Population:", config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1]);
-
-                  //Generate colour key and accompanying labels
-                  ctx.strokeStyle = "#ffffff";
-
-                  for (var i = 0; i < 110; i+= 10) {
-                    var local_index = i;
-                    if (local_index == 100) local_index--; //Render 99
-
-                    if (i == 0 || maximum_population > 0) {
-                      ctx.fillStyle = RGBToHex(
-                        config.defines.map.scalar_gradient[local_index][0], config.defines.map.scalar_gradient[local_index][1], config.defines.map.scalar_gradient[local_index][2]
-                      );
-                      ctx.fillRect(config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1] + 15 + (i/10)*40, 36, 36);
-                      ctx.beginPath();
-                      ctx.rect(config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1] + 15 + (i/10)*40, 36, 36);
-                      ctx.stroke();
-
-                      ctx.fillStyle = "#ffffff";
-                      ctx.fillText(truncateString(`${parseNumber((local_index < 99) ? getLogarithmicScale(local_index, 1, maximum_population, 3) : maximum_population)}`, 15), config.defines.map.map_label_coords[0] + 50, config.defines.map.map_label_coords[1] + 47 + (i/10)*40);
-                    }
-                  }
-
-                  break;
-                case "supply":
-                  var all_provinces = Object.keys(main.provinces);
-                  var maximum_supply_limit = 0;
-
-                  //Get maximum supply limit
-                  for (var i = 0; i < all_provinces.length; i++)
-                    maximum_supply_limit = Math.max(
-                      maximum_supply_limit, returnSafeNumber(main.provinces[all_provinces[i]].supply_limit)
-                    );
-
-                  //Initialise canvas
-                  var canvas = Canvas.createCanvas(config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  var ctx = canvas.getContext("2d");
-
-                  //Load map
-                  var background_layer = new Canvas.Image();
-                  var supply_svg_layer = new Canvas.Image();
-
-                  background_layer.onload = () => ctx.drawImage(background_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  background_layer.onerror = err => { throw err; }
-                  background_layer.src = `./map/${config.defines.map.map_background}`;
-
-                  supply_svg_layer.onload = () => ctx.drawImage(supply_svg_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                  supply_svg_layer.onerror = err => { throw err; }
-                  supply_svg_layer.src = `./map/${map_file.replace(".svg", ".png")}`;
-
-                  //Only render province labels if applicable
-                  if (!hide_province_labels) {
-                    var province_id_layer = new Canvas.Image();
-
-                    province_id_layer.onload = () => ctx.drawImage(province_id_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    province_id_layer.onerror = err => { throw err; }
-                    province_id_layer.src = `./map/${config.defines.map.map_overlay}`;
-                  }
-
-                  //Supply legend rendering; render linear scale
-                  ctx.font = "36px Oswald";
-                  ctx.fillStyle = "#ffffff";
-                  ctx.fillText("Supply Limit:", config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1]);
-
-                  //Generate colour key and accompanying labels
-                  ctx.strokeStyle = "#ffffff";
-
-                  for (var i = 0; i < 110; i+= 10) {
-                    var local_index = i;
-                    if (local_index == 100) local_index--; //Render 99
-
-                    if (i == 0 || maximum_supply_limit > config.defines.combat.base_supply_limit) {
-                      ctx.fillStyle = RGBToHex(
-                        config.defines.map.scalar_gradient[local_index][0], config.defines.map.scalar_gradient[local_index][1], config.defines.map.scalar_gradient[local_index][2]
-                      );
-                      ctx.fillRect(config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1] + 15 + (i/10)*40, 36, 36);
-                      ctx.beginPath();
-                      ctx.rect(config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1] + 15 + (i/10)*40, 36, 36);
-                      ctx.stroke();
-
-                      ctx.fillStyle = "#ffffff";
-                      ctx.fillText(truncateString(`${Math.round(Math.max(maximum_supply_limit*(local_index/100), config.defines.combat.base_supply_limit))}`, 15), config.defines.map.map_label_coords[0] + 50, config.defines.map.map_label_coords[1] + 47 + (i/10)*40);
-                    }
-                  }
-
-                  break;
-                default:
-                  //Political map rendering
-                  var current_element = 0;
-                  var counter = 0;
-
-                  //Separate labels into columns
-                  for (var i = 0; i < all_users.length; i++) {
-                    var local_user = main.users[all_users[i]];
-
-                    //Only display label if user is not eliminated and has more than zero provinces
-                    if (local_user)
-                      if (!local_user.eliminated && local_user.provinces > 0)
-                        if (label_placement[current_element]) {
-                          if (counter == label_placement[current_element]) {
-                            counter = 0;
-                            current_element++;
-                          }
-
-                          counter++;
-                          if (labels[current_element])
-                            labels[current_element].push(all_users[i]);
-                          else
-                            labels[current_element] = [all_users[i]];
-                        }
-                  }
-
-                  //Initialise canvas and draw key for political map
-                  {
-                    var canvas = Canvas.createCanvas(config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    var ctx = canvas.getContext("2d");
-
-                    //Load map
-                    var background_layer = new Canvas.Image();
-                    var political_svg_layer = new Canvas.Image();
-
-                    background_layer.onload = () => ctx.drawImage(background_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    background_layer.onerror = err => { throw err; }
-
-                    background_layer.src = `./map/${config.defines.map.map_background}`;
-
-                    political_svg_layer.onload = () => ctx.drawImage(political_svg_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                    political_svg_layer.onerror = err => { throw err; }
-                    political_svg_layer.src = `./map/${map_file.replace(".svg", ".png")}`;
-
-                    //Only render province labels if applicable
-                    if (!hide_province_labels) {
-                      var province_id_layer = new Canvas.Image();
-
-                      province_id_layer.onload = () => ctx.drawImage(province_id_layer, 0, 0, config.defines.map.map_resolution[0], config.defines.map.map_resolution[1]);
-                      province_id_layer.onerror = err => { throw err; }
-                      province_id_layer.src = `./map/${config.defines.map.map_overlay}`;
-                    }
-
-                    //Generate key
-                    ctx.font = "36px Oswald";
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillText("Nations of the World:", config.defines.map.map_label_coords[0], config.defines.map.map_label_coords[1]);
-
-                    //Generate colour key and accompanying labels
-                    ctx.strokeStyle = "#ffffff";
-
-                    for (var i = 0; i < labels.length; i++)
-                      for (var x = 0; x < labels[i].length; x++) {
-                        var local_user = main.users[labels[i][x]];
-
-                        ctx.fillStyle = RGBToHex(parseInt(local_user.colour[0]), parseInt(local_user.colour[1]), parseInt(local_user.colour[2]));
-                        ctx.fillRect(config.defines.map.map_label_coords[0] + i*320, config.defines.map.map_label_coords[1] + 15 + x*40, 36, 36);
-                        ctx.beginPath();
-                        ctx.rect(config.defines.map.map_label_coords[0] + i*320, config.defines.map.map_label_coords[1] + 15 + x*40, 36, 36);
-                        ctx.stroke();
-
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillText(truncateString(local_user.name, 15), config.defines.map.map_label_coords[0] + 50 + i*320, config.defines.map.map_label_coords[1] + 47 + x*40);
-                      }
-                  }
-
-                  break;
-              }
-
-              //JPEG compression
-              var main_cache = canvas.toBuffer("image/jpeg");
-              fs.promises.writeFile(`./map/cache/${map_name}.jpg`, main_cache).then(() => {
-                module.exports.reloadAllMapInterfaces(map_name);
-              });
-            } catch (e) {
-              log.error(`internalCacheSVG() encountered an error whilst parsing file ${map_file} of map name ${map_name}: ${e}.`);
-              console.log(e);
+                  counter++;
+                  if (labels[current_element])
+                    labels[current_element].push(all_users[i]);
+                  else labels[current_element] = [all_users[i]];
+                }
             }
-          }
-        });
-    });
+            
+            // Load and draw layers sequentially
+            var background_layer = await Canvas.loadImage(
+              `./map/${config.defines.map.map_terrain}`
+            );
+            ctx.drawImage(
+              background_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            var atlas_svg_layer = await Canvas.loadImage(`./map/atlas_map.png`);
+            ctx.drawImage(
+              atlas_svg_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            ctx.font = "36px Oswald";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(
+              "Nations of the World:",
+              config.defines.map.map_label_coords[0],
+              config.defines.map.map_label_coords[1]
+            );
+            ctx.strokeStyle = "#ffffff";
+            
+            for (var i = 0; i < labels.length; i++)
+              for (var x = 0; x < labels[i].length; x++) {
+                var local_user = main.users[labels[i][x]];
+                ctx.fillStyle = RGBToHex(
+                  parseInt(local_user.colour[0]),
+                  parseInt(local_user.colour[1]),
+                  parseInt(local_user.colour[2])
+                );
+                ctx.fillRect(
+                  config.defines.map.map_label_coords[0] + i * 320,
+                  config.defines.map.map_label_coords[1] + 15 + x * 40,
+                  36,
+                  36
+                );
+                ctx.beginPath();
+                ctx.rect(
+                  config.defines.map.map_label_coords[0] + i * 320,
+                  config.defines.map.map_label_coords[1] + 15 + x * 40,
+                  36,
+                  36
+                );
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(
+                  truncateString(local_user.name, 15),
+                  config.defines.map.map_label_coords[0] + 50 + i * 320,
+                  config.defines.map.map_label_coords[1] + 47 + x * 40
+                );
+              }
+            break;
+          
+          case "population":
+            var all_provinces = Object.keys(main.provinces);
+            var maximum_population = 0;
+            
+            for (var i = 0; i < all_provinces.length; i++) {
+              var local_province = main.provinces[all_provinces[i]];
+              if (local_province.pops)
+                maximum_population = Math.max(
+                  maximum_population,
+                  returnSafeNumber(local_province.pops.population)
+                );
+            }
+            
+            var background_layer = await Canvas.loadImage(
+              `./map/${config.defines.map.map_background}`
+            );
+            ctx.drawImage(
+              background_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            var population_layer = await Canvas.loadImage(
+              `./map/${map_file.replace(".svg", ".png")}`
+            );
+            ctx.drawImage(
+              population_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            if (!hide_province_labels) {
+              var province_id_layer = await Canvas.loadImage(
+                `./map/${config.defines.map.map_overlay}`
+              );
+              ctx.drawImage(
+                province_id_layer,
+                0,
+                0,
+                config.defines.map.map_resolution[0],
+                config.defines.map.map_resolution[1]
+              );
+            }
+            
+            ctx.font = "36px Oswald";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(
+              "Population:",
+              config.defines.map.map_label_coords[0],
+              config.defines.map.map_label_coords[1]
+            );
+            ctx.strokeStyle = "#ffffff";
+            
+            for (var i = 0; i < 110; i += 10) {
+              var local_index = i == 100 ? 99 : i;
+              if (i == 0 || maximum_population > 0) {
+                ctx.fillStyle = RGBToHex(
+                  config.defines.map.scalar_gradient[local_index][0],
+                  config.defines.map.scalar_gradient[local_index][1],
+                  config.defines.map.scalar_gradient[local_index][2]
+                );
+                ctx.fillRect(
+                  config.defines.map.map_label_coords[0],
+                  config.defines.map.map_label_coords[1] + 15 + (i / 10) * 40,
+                  36,
+                  36
+                );
+                ctx.beginPath();
+                ctx.rect(
+                  config.defines.map.map_label_coords[0],
+                  config.defines.map.map_label_coords[1] + 15 + (i / 10) * 40,
+                  36,
+                  36
+                );
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(
+                  truncateString(
+                    `${parseNumber(
+                      local_index < 99
+                        ? getLogarithmicScale(local_index, 1, maximum_population, 3)
+                        : maximum_population
+                    )}`,
+                    15
+                  ),
+                  config.defines.map.map_label_coords[0] + 50,
+                  config.defines.map.map_label_coords[1] + 47 + (i / 10) * 40
+                );
+              }
+            }
+            break;
+          
+          case "supply":
+            var all_provinces = Object.keys(main.provinces);
+            var maximum_supply_limit = 0;
+            
+            for (var i = 0; i < all_provinces.length; i++)
+              maximum_supply_limit = Math.max(
+                maximum_supply_limit,
+                returnSafeNumber(main.provinces[all_provinces[i]].supply_limit)
+              );
+            
+            var background_layer = await Canvas.loadImage(
+              `./map/${config.defines.map.map_background}`
+            );
+            ctx.drawImage(
+              background_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            var supply_svg_layer = await Canvas.loadImage(
+              `./map/${map_file.replace(".svg", ".png")}`
+            );
+            ctx.drawImage(
+              supply_svg_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            if (!hide_province_labels) {
+              var province_id_layer = await Canvas.loadImage(
+                `./map/${config.defines.map.map_overlay}`
+              );
+              ctx.drawImage(
+                province_id_layer,
+                0,
+                0,
+                config.defines.map.map_resolution[0],
+                config.defines.map.map_resolution[1]
+              );
+            }
+            
+            ctx.font = "36px Oswald";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(
+              "Supply Limit:",
+              config.defines.map.map_label_coords[0],
+              config.defines.map.map_label_coords[1]
+            );
+            ctx.strokeStyle = "#ffffff";
+            
+            for (var i = 0; i < 110; i += 10) {
+              var local_index = i == 100 ? 99 : i;
+              if (
+                i == 0 ||
+                maximum_supply_limit > config.defines.combat.base_supply_limit
+              ) {
+                ctx.fillStyle = RGBToHex(
+                  config.defines.map.scalar_gradient[local_index][0],
+                  config.defines.map.scalar_gradient[local_index][1],
+                  config.defines.map.scalar_gradient[local_index][2]
+                );
+                ctx.fillRect(
+                  config.defines.map.map_label_coords[0],
+                  config.defines.map.map_label_coords[1] + 15 + (i / 10) * 40,
+                  36,
+                  36
+                );
+                ctx.beginPath();
+                ctx.rect(
+                  config.defines.map.map_label_coords[0],
+                  config.defines.map.map_label_coords[1] + 15 + (i / 10) * 40,
+                  36,
+                  36
+                );
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(
+                  truncateString(
+                    `${Math.round(
+                      Math.max(
+                        maximum_supply_limit * (local_index / 100),
+                        config.defines.combat.base_supply_limit
+                      )
+                    )}`,
+                    15
+                  ),
+                  config.defines.map.map_label_coords[0] + 50,
+                  config.defines.map.map_label_coords[1] + 47 + (i / 10) * 40
+                );
+              }
+            }
+            break;
+          
+          default:
+            var current_element = 0;
+            var counter = 0;
+            
+            for (var i = 0; i < all_users.length; i++) {
+              var local_user = main.users[all_users[i]];
+              if (local_user)
+                if (!local_user.eliminated && local_user.provinces > 0)
+                  if (label_placement[current_element]) {
+                    if (counter == label_placement[current_element]) {
+                      counter = 0;
+                      current_element++;
+                    }
+                    counter++;
+                    if (labels[current_element])
+                      labels[current_element].push(all_users[i]);
+                    else labels[current_element] = [all_users[i]];
+                  }
+            }
+            
+            var background_layer = await Canvas.loadImage(
+              `./map/${config.defines.map.map_background}`
+            );
+            ctx.drawImage(
+              background_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            var political_svg_layer = await Canvas.loadImage(
+              `./map/${map_file.replace(".svg", ".png")}`
+            );
+            ctx.drawImage(
+              political_svg_layer,
+              0,
+              0,
+              config.defines.map.map_resolution[0],
+              config.defines.map.map_resolution[1]
+            );
+            
+            if (!hide_province_labels) {
+              var province_id_layer = await Canvas.loadImage(
+                `./map/${config.defines.map.map_overlay}`
+              );
+              ctx.drawImage(
+                province_id_layer,
+                0,
+                0,
+                config.defines.map.map_resolution[0],
+                config.defines.map.map_resolution[1]
+              );
+            }
+            
+            ctx.font = "36px Oswald";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(
+              "Nations of the World:",
+              config.defines.map.map_label_coords[0],
+              config.defines.map.map_label_coords[1]
+            );
+            ctx.strokeStyle = "#ffffff";
+            
+            for (var i = 0; i < labels.length; i++)
+              for (var x = 0; x < labels[i].length; x++) {
+                var local_user = main.users[labels[i][x]];
+                ctx.fillStyle = RGBToHex(
+                  parseInt(local_user.colour[0]),
+                  parseInt(local_user.colour[1]),
+                  parseInt(local_user.colour[2])
+                );
+                ctx.fillRect(
+                  config.defines.map.map_label_coords[0] + i * 320,
+                  config.defines.map.map_label_coords[1] + 15 + x * 40,
+                  36,
+                  36
+                );
+                ctx.beginPath();
+                ctx.rect(
+                  config.defines.map.map_label_coords[0] + i * 320,
+                  config.defines.map.map_label_coords[1] + 15 + x * 40,
+                  36,
+                  36
+                );
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(
+                  truncateString(local_user.name, 15),
+                  config.defines.map.map_label_coords[0] + 50 + i * 320,
+                  config.defines.map.map_label_coords[1] + 47 + x * 40
+                );
+              }
+            break;
+        }
+        
+        var main_cache = canvas.toBuffer("image/jpeg");
+        await fs.promises.writeFile(`./map/cache/${map_name}.jpg`, main_cache);
+        module.exports.reloadAllMapInterfaces(map_name);
+      }
+    } catch (e) {
+      log.error(
+        `internalCacheSVG() encountered an error whilst parsing file ${map_file} of map name ${map_name}: ${e}.`
+      );
+      console.log(e);
+    }
   },
 
   internalForceRender: function (arg0_map_name) {

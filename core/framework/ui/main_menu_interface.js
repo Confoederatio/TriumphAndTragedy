@@ -146,17 +146,17 @@ module.exports = {
 
   invitePlayer: function (arg0_user, arg1_user) {
     //Convert from parameters
-    var user_id = arg0_user;
-    var ot_user_id = arg1_user;
+    let user_id = arg0_user;
+    let ot_user_id = arg1_user;
 
     //Declare local instance variables
-    var actual_id = main.global.user_map[user_id];
-    var actual_ot_user_id = returnMention(ot_user_id);
-    var game_obj = getGameObject(user_id);
-    var ot_user = main.users[actual_ot_user_id];
-    var user = client.users.cache.find(user => user.id.toString() == ot_user_id);
-    var usr = main.users[actual_id];
-    var vassal_obj = getVassal(user_id);
+    let actual_id = main.global.user_map[user_id];
+    let actual_ot_user_id = returnMention(ot_user_id);
+    let game_obj = getGameObject(user_id);
+    let ot_user = main.users[actual_ot_user_id];
+    let user = client.users.cache.find(user => user.id.toString() === ot_user_id);
+    let usr = main.users[actual_id];
+    let vassal_obj = getVassal(user_id);
 
     //Check if player is a vassal
     if (!vassal_obj) {
@@ -175,10 +175,10 @@ module.exports = {
             //Make sure user isn't currently playing a country
             if (!returnMention(ot_user_id)) {
               //Set user map
-              returnMention(ot_user_id) = actual_id;
+              main.global.user_map[ot_user_id] = actual_id;
 
               //Reload UI
-              if (game_obj.page == "coop_menu")
+              if (game_obj.page === "coop_menu")
                 createPageMenu(game_obj.middle_embed, {
                   embed_pages: module.exports.printCoopMenu(user_id),
                   page: main.interfaces[game_obj.middle_embed.id].page,
@@ -212,7 +212,7 @@ module.exports = {
             //Make sure user isn't currently playing a country
             if (!returnMention(ot_user_id)) {
               //Set user map
-              returnMention(ot_user_id) = actual_id;
+              main.global.user_map[ot_user_id] = actual_id;
 
               //Reload UI
               if (game_obj.page == "coop_menu")

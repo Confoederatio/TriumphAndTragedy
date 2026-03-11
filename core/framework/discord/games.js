@@ -65,13 +65,14 @@ module.exports = {
         clearInterval(cache[`${game_id}_main_loop`]);
 
         if (game_obj)
-          var delete_loop = setInterval(function(channel_id) {
+          cache[`${game_id}_delete_loop`] = setInterval(function(channel_id) {
             try {
-              if (game_obj.channel != settings.alert_channel && main.game_channels.includes(game_obj.channel)) {
+              if (game_obj.channel !== settings.alert_channel && main.game_channels.includes(game_obj.channel)) {
                 var local_channel = returnChannel(channel_id);
 
-                if (local_channel)
+                try {
                   local_channel.delete();
+                } catch {}
                 main.game_channels = removeElement(main.game_channels);
 
                 //Delete game_obj as well
@@ -79,7 +80,7 @@ module.exports = {
                 delete main.interfaces[game_id];
               }
             } catch {
-              clearInterval(delete_loop);
+              clearInterval(cache[`${game_id}_delete_loop`]);
             }
           }, 1000, JSON.parse(JSON.stringify(game_obj.channel)));
     } catch (e) {
@@ -162,36 +163,57 @@ module.exports = {
       server.channels.create(`tt-${username}`, {
         type: "text"
       }).then((channel) => {
-        var category_id = settings.tt_category_id;
+        let category_obj = getGamesCategory(server);
 
-        //Initialise channel
-        channel.setParent(category_id);
-        channel.setTopic(`This is a private game channel for <@${user_id}> related to **Triumph & Tragedy**.\nCurrently in game.`);
-
-        //Make channel private so that only the user who requested the channel can access it
-        channel.permissionOverwrites.set([
-          {
-            id: user_id,
-            allow: ["VIEW_CHANNEL", "SEND_MESSAGES", "READ_MESSAGE_HISTORY"]
-          },
-          {
-            id: settings.citizen_role,
-            allow: ["VIEW_CHANNEL", "READ_MESSAGE_HISTORY"]
-          }
-        ]);
-
-        main.game_channels.push(channel.id);
-        interfaces[game_id].channel = channel.id;
-        interfaces[game_id].map = {};
-        interfaces[game_id].page = (main.global.user_map[user_id]) ? "country_interface" : "founding_map";
-
-        //Send confirmation message and initialise main menu embeds
-        sendPlainEmbed(msg, `<@${user_id}> - Click <#${channel.id}> to begin playing.`);
-        initialiseGameEmbeds(game_id);
+        if (category_obj) {
+          //Initialise channel
+          channel.setParent(category_obj.id);
+          channel.setTopic(`This is a private game channel for <@${user_id}> related to **Triumph & Tragedy**.\nCurrently in game.`);
+          
+          //Make channel private so that only the user who requested the channel can access it
+          channel.permissionOverwrites.set([
+            {
+              id: user_id,
+              allow: ["VIEW_CHANNEL", "SEND_MESSAGES", "READ_MESSAGE_HISTORY"]
+            },
+            {
+              id: settings.citizen_role,
+              allow: ["VIEW_CHANNEL", "READ_MESSAGE_HISTORY"]
+            }
+          ]);
+          
+          main.game_channels.push(channel.id);
+          interfaces[game_id].channel = channel.id;
+          interfaces[game_id].map = {};
+          interfaces[game_id].page = (main.global.user_map[user_id]) ? "country_interface" : "founding_map";
+          
+          //Send confirmation message and initialise main menu embeds
+          sendPlainEmbed(msg, `<@${user_id}> - Click <#${channel.id}> to begin playing.`);
+          initialiseGameEmbeds(game_id);
+        } else {
+          sendPlainEmbed(msg, `:warning: A valid games category for this server could not be found.`);
+        }
       });
     } else {
       sendPlainEmbed(msg, "You are already playing a concurrent game of **Triumph & Tragedy**!");
     }
+  },
+  
+  getGamesCategory: function (arg0_server_obj) {
+    //Convert from parameters
+    let server_obj = arg0_server_obj;
+    
+    //Declare local instance variables
+    let tt_categories = getList(global.settings.tt_category_id);
+    
+    if (server_obj instanceof Discord.Guild)
+      for (let i = 0; i < tt_categories.length; i++) {
+        let local_category_obj = server_obj.channels.cache.get(tt_categories[i]);
+        
+        //Return statement
+        if (local_category_obj?.type === "GUILD_CATEGORY")
+          return local_category_obj;
+      }
   },
 
   initialiseGameEmbeds: function (arg0_game_id) {
@@ -312,8 +334,8 @@ module.exports = {
           //Check if message is subject to a current command prompt
           for (var i = 0; i < all_visual_prompts.length; i++) {
             var local_prompt = interfaces[all_visual_prompts[i]];
-            if (local_prompt.type == "visual_prompt")
-              if (local_prompt.message.id == game_obj.alert_embed.id)
+            if (local_prompt.type === "visual_prompt")
+              if (local_prompt.message.id === game_obj.alert_embed.id)
                 message_is_prompt = true;
           }
 
@@ -323,8 +345,8 @@ module.exports = {
               updateAlert(game_obj.user, { freeze_alerts: game_obj.freeze_alerts });
         } catch (e) {
           if (settings.debug_mode) {
-            log.warn(`Ran into error on initialiseGameLoop()!`);
-            console.log(e);
+            //log.warn(`Ran into error on initialiseGameLoop()!`);
+            //console.log(e);
           }
         }
       } else {
@@ -438,7 +460,7 @@ module.exports = {
 
             //Try to fetch existing messages first
             var reinitialisation_loop = setInterval(function(local_ui, local_interface){
-              if (local_ui.type == "game")
+              if (local_ui.type === "game")
                 if (returnChannel(local_ui.channel))
                   var local_messages = returnChannel(local_ui.channel).messages.fetch({ limit: 100 }).then((messages) => {
                     var all_messages = [...messages];
@@ -449,7 +471,7 @@ module.exports = {
 
                       try {
                         for (var y = 0; y < game_embeds.length; y++)
-                          if (local_ui[game_embeds[y]].id == all_messages[x][0])
+                          if (local_ui[game_embeds[y]].id === all_messages[x][0])
                             is_game_embed = [true, game_embeds[y]];
 
                         if (is_game_embed[0]) {
@@ -469,7 +491,7 @@ module.exports = {
                     for (var x = 0; x < all_messages.length; x++)
                       if (!fetched_game_embeds.includes(all_messages[x][0]))
                         try {
-                          if (local_ui.channel != settings.alert_channel)
+                          if (local_ui.channel !== settings.alert_channel)
                             if (!all_messages[x][1].author.bot)
                               all_messages[x][1].delete();
                         } catch {}
@@ -482,7 +504,7 @@ module.exports = {
       for (var i = 0; i < all_interfaces.length; i++) {
         var local_ui = interfaces[all_interfaces[i]];
 
-        if (!local_ui.channel) {
+        if (!local_ui?.channel) {
           delete interfaces[all_interfaces[i]];
           delete main.interfaces[all_interfaces[i]];
         }

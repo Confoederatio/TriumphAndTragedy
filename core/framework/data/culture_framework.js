@@ -139,20 +139,20 @@ module.exports = {
     var options = (arg1_options) ? arg1_options: {};
 
     //Declare local instance variables
-    var actual_id = main.global.user_map[actual_id];
+    var actual_id = main.global.user_map[user_id];
     var accepted_culture_provinces = [];
     var all_provinces = Object.keys(main.provinces);
     var usr = main.users[actual_id];
 
     for (var i = 0; i < all_provinces.length; i++)
-      if (main.provinces[all_provinces[i]].controller == actual_id) {
+      if (main.provinces[all_provinces[i]].controller === actual_id) {
         var local_culture = getMajorityCulture(all_provinces[i]);
 
         if (local_culture)
           //Check if local_culture meets the prerequisites for being pushed
           if (
-            local_culture.accepted_culture.includes(user_id) ||
-            (local_culture.primary_culture.includes(user_id) && !options.exclude_primary_culture)
+            local_culture.accepted_culture.includes(actual_id) ||
+            (local_culture.primary_culture.includes(actual_id) && !options.exclude_primary_culture)
           )
             accepted_culture_provinces.push(all_provinces[i]);
       }
@@ -200,8 +200,14 @@ module.exports = {
   */
   getCulture: function (arg0_culture, arg1_options) {
     //Convert from parameters
-    var culture_name = arg0_culture.trim().toLowerCase();
-    var options = (arg1_options) ? arg1_options : {};
+    let culture_name = arg0_culture;
+    let options = (arg1_options) ? arg1_options : {};
+    
+    if (typeof culture_name === "object") return culture_name; //Internal guard clause if it is already an object
+    if (typeof culture_name === "string" && culture_name.startsWith("culture-")) //Remove culture- key if present
+      culture_name = culture_name.replace("culture-", "");
+    
+    culture_name = culture_name.trim().toLowerCase();
 
     //Declare local instance variables
     var all_cultures = Object.keys(main.global.cultures);
@@ -211,12 +217,12 @@ module.exports = {
     {
       //Soft-search
       for (var i = 0; i < all_cultures.length; i++)
-        if (all_cultures[i].toLowerCase().indexOf(culture_name) != -1)
+        if (all_cultures[i].toLowerCase().indexOf(culture_name) !== -1)
           culture_exists = [true, (!options.return_key) ? main.global.cultures[all_cultures[i]] : all_cultures[i]];
 
       //Hard-search
       for (var i = 0; i < all_cultures.length; i++)
-        if (all_cultures[i].toLowerCase() == culture_name)
+        if (all_cultures[i].toLowerCase() === culture_name)
           culture_exists = [true, (!options.return_key) ? main.global.cultures[all_cultures[i]] : all_cultures[i]];
     }
 
@@ -226,7 +232,7 @@ module.exports = {
       for (var i = 0; i < all_cultures.length; i++) {
         var local_culture = main.global.cultures[all_cultures[i]];
 
-        if (local_culture.name.toLowerCase().indexOf(culture_name) != -1)
+        if (local_culture.name.toLowerCase().indexOf(culture_name) !== -1)
           culture_exists = [true, (!options.return_key) ? local_culture : all_cultures[i]];
       }
 
@@ -234,7 +240,7 @@ module.exports = {
       for (var i = 0; i < all_cultures.length; i++) {
         var local_culture = main.global.cultures[all_cultures[i]];
 
-        if (local_culture.name.toLowerCase() == culture_name)
+        if (local_culture.name.toLowerCase() === culture_name)
           culture_exists = [true, (!options.return_key) ? local_culture : all_cultures[i]];
       }
     }
@@ -245,7 +251,7 @@ module.exports = {
       for (var i = 0; i < all_cultures.length; i++) {
         var local_culture = main.global.cultures[all_cultures[i]];
 
-        if (local_culture.adjective.toLowerCase().indexOf(culture_name) != -1)
+        if (local_culture.adjective.toLowerCase().indexOf(culture_name) !== -1)
           culture_exists = [true, (!options.return_key) ? local_culture : all_cultures[i]];
       }
 
@@ -253,7 +259,7 @@ module.exports = {
       for (var i = 0; i < all_cultures.length; i++) {
         var local_culture = main.global.cultures[all_cultures[i]];
 
-        if (local_culture.adjective.toLowerCase() == culture_name)
+        if (local_culture.adjective.toLowerCase() === culture_name)
           culture_exists = [true, (!options.return_key) ? local_culture : all_cultures[i]];
       }
     }
@@ -277,22 +283,39 @@ module.exports = {
   },
 
   //getCultures() - Returns an array of keys for all cultures inside a given user's controlled territory
-  getCultures: function (arg0_user) {
+  getCultures: function (arg0_user, arg1_options) {
     //Convert from parameters
-    var user_id = arg0_user;
+    let user_id = arg0_user;
+    let options = (arg1_options) ? arg1_options : {};
 
     //Declare local instance variables
-    var actual_id = main.global.user_map[user_id];
-    var all_provinces = Object.keys(main.provinces);
-    var culture_list = [];
+    let actual_id = main.global.user_map[user_id];
+    let all_provinces = Object.keys(main.provinces);
+    let culture_list = [];
 
     //Parse through all provinces the user controls for unique cultures
-    for (var i = 0; i < all_provinces.length; i++) {
-      var local_province = main.provinces[all_provinces[i]];
+    for (let i = 0; i < all_provinces.length; i++) {
+      let local_province = main.provinces[all_provinces[i]];
 
-      if (local_province.controller == actual_id)
-        if (!culture_list.includes(local_province.culture))
-          culture_list.push(local_province.culture);
+      if (local_province.controller === actual_id && local_province.pops) {
+        let all_pops_keys = Object.keys(local_province.pops);
+        
+        for (let x = 0; x < all_pops_keys.length; x++)
+          if (all_pops_keys[x].startsWith("culture-"))
+            if (!culture_list.includes(all_pops_keys[x]))
+              culture_list.push(all_pops_keys[x]);
+      }
+    }
+    
+    if (options.return_objects) {
+      let all_cultures = [];
+      
+      //Iterate over all cultures in list
+      for (let i = 0; i < culture_list.length; i++)
+        all_cultures.push(main.global.cultures[culture_list[i]]);
+      
+      //Return statement
+      return all_cultures;
     }
 
     //Return statement
@@ -314,8 +337,8 @@ module.exports = {
       var local_culture = getMajorityCulture(all_provinces[i]);
       var local_province = main.provinces[all_provinces[i]];
 
-      if (local_province.controller == actual_id || user_id == "all")
-        if (local_culture.id == culture_name)
+      if (local_province.controller === actual_id || user_id === "all")
+        if (local_culture.id === culture_name)
           province_list.push(all_provinces[i]);
     }
 
@@ -331,23 +354,23 @@ module.exports = {
   */
   getMajorityCulture: function (arg0_province_id, arg1_options) {
     //Convert from parameters
-    var province_id = arg0_province_id;
-    var options = (arg1_options) ? arg1_options : {};
+    let province_id = arg0_province_id;
+    let options = (arg1_options) ? arg1_options : {};
 
     //Declare local instance variables
-    var largest_culture = [0, undefined];
-    var province_obj = main.provinces[province_id];
+    let largest_culture = [0, undefined];
+    let province_obj = main.provinces[province_id];
 
     //Check if province_obj.pops exists
     if (province_obj) {
       if (province_obj.pops) {
-        var all_pop_keys = Object.keys(province_obj.pops);
+        let all_pop_keys = Object.keys(province_obj.pops);
 
         //Iterate over all_pop_keys
-        for (var i = 0; i < all_pop_keys.length; i++)
+        for (let i = 0; i < all_pop_keys.length; i++)
           if (all_pop_keys[i].startsWith("culture-")) {
-            var local_culture_id = all_pop_keys[i].replace("culture-", "");
-            var local_value = province_obj.pops[all_pop_keys[i]];
+            let local_culture_id = all_pop_keys[i].replace("culture-", "");
+            let local_value = province_obj.pops[all_pop_keys[i]];
 
             if (local_value > largest_culture[0])
               largest_culture = [local_value, (!options.return_key) ? main.global.cultures[local_culture_id] : local_culture_id];
@@ -355,8 +378,8 @@ module.exports = {
       }
 
       if (!largest_culture[1]) {
-        var primary_culture = getPrimaryCultures(province_obj.controller)[0];
-        var primary_culture_obj = main.global.cultures[primary_culture];
+        let primary_culture = getPrimaryCultures(province_obj.controller)[0];
+        let primary_culture_obj = main.global.cultures[primary_culture];
 
         largest_culture = [0, (!options.return_key) ? primary_culture_obj : primary_culture];
       }
@@ -462,15 +485,15 @@ module.exports = {
 
   getSortedCultures: function (arg0_user) {
     //Convert from parameters
-    var user_id = arg0_user;
+    let user_id = arg0_user;
 
     //Declare local instance variables
-    var actual_id = main.global.user_map[user_id];
-    var culture_list = []; //[culture_id, population]
-    var user_cultures = module.exports.getCultures(user_id);
+    let actual_id = main.global.user_map[user_id];
+    let culture_list = []; //[culture_id, population]
+    let user_cultures = module.exports.getCultures(user_id);
 
     //Initialise culture_list array
-    for (var i = 0; i < user_cultures.length; i++)
+    for (let i = 0; i < user_cultures.length; i++)
       culture_list.push({
         id: user_cultures[i],
         percentage_population: calculateCulturalPercentage(user_id, user_cultures[i]),
@@ -479,9 +502,20 @@ module.exports = {
 
     //Sort culture_list array
     culture_list = culture_list.sort((a, b) => b.total_population - a.total_population);
+    
+    //Parse culture_list to Object[], then return it
+    let new_culture_list = [];
+    
+    for (let i = 0; i < culture_list.length; i++) {
+      let local_key = culture_list[i].id.replace("culture-", "");
+      
+      let local_culture_obj = main.global.cultures[local_key];
+      
+      new_culture_list.push(local_culture_obj);
+    }
 
     //Return statement
-    return culture_list;
+    return new_culture_list;
   },
 
   /*

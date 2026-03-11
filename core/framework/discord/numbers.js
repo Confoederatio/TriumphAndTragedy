@@ -139,8 +139,8 @@ module.exports = {
   */
   printPercentage: function (arg0_number, arg1_options) {
     //Convert from parameters
-    var number = arg0_number;
-    var options = (arg1_options) ? arg1_options : {};
+		let number = arg0_number;
+		let options = (arg1_options) ? arg1_options : {};
 
     //Adjust for base_one; set options
     if (options.base_one)
@@ -148,27 +148,29 @@ module.exports = {
     if (!options.precision) options.precision = 2;
 
     //Declare local instance variables
-    var hit_separator = false;
-    var prefix_string = "";
-    var separator_characters = 0;
+		let hit_separator = false;
+		let prefix_string = "";
+		let separator_characters = 0;
 
     //Set prefix_string
     if (options.display_prefix && number > 0)
       prefix_string = `+`;
+		
+		let percentage_string = `${prefix_string}${(!options.display_float) ? Math[(options.ceiling) ? "ceil" : "round"](number*100) : Math.round(number*100*100*100)/100/100}`;
+		let processed_string = "";
 
-    var percentage_string = `${prefix_string}${(!options.display_float) ? Math[(options.ceiling) ? "ceil" : "round"](number*100) : Math.round(number*100*100*100)/100/100}`;
-    var processed_string = "";
-
-    for (var i = 0; i < percentage_string.length; i++) {
+    for (let i = 0; i < percentage_string.length; i++) {
       if (hit_separator)
         separator_characters++;
 
       if (separator_characters <= options.precision)
         processed_string += percentage_string[i];
 
-      if (percentage_string[i] == ".")
+      if (percentage_string[i] === ".")
         hit_separator = true;
     }
+		
+		if (String(processed_string) === "NaN") processed_string = "0"; //Guard clause for NaN
 
     //Return statement
     return `${processed_string}%`;

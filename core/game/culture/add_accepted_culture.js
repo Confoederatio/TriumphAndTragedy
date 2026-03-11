@@ -30,7 +30,7 @@ module.exports = {
           });
 
           //Update culture screen if user is currently viewing it
-          if (game_obj.page == "culture")
+          if (game_obj.page === "culture")
             createPageMenu(game_obj.middle_embed, {
               embed_pages: printCultures(user_id),
               user: game_obj.user
