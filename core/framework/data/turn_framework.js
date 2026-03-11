@@ -393,7 +393,7 @@ module.exports = {
         console.timeEnd(`Force rendering all maps!`);
 
         //Reload maps in master process
-        process.send({ load_maps: true });
+        if (process?.send) process.send({ load_maps: true });
       }
     }
 
@@ -433,6 +433,10 @@ module.exports = {
       main.users[actual_id] = JSON.parse(JSON.stringify(main.users[main.global.user_map[user_id.replace("_simulation", "")]]));
     }
     var usr = main.users[actual_id];
+    if (usr === undefined) {
+      console.log(`usr is undefined`, `(user_id):`, user_id, `(actual_id):`, actual_id);
+      return; //Internal guard clause if usr cannot be found
+    }
 
     if (!Cluster.isMaster)
       log.debug(`Processing turn for ${usr.name} (ID: ${user_id}) on Worker #${Cluster.worker.id}`);
