@@ -66,8 +66,8 @@ module.exports = {
     var game_obj = getGameObject(user_id);
     var usr = main.users[actual_id];
 
-    var alerts_length = (usr.alerts) ? usr.alerts.length : 0;
-    var events_length = (usr.events) ? usr.events.length : 0;
+    var alerts_length = (usr && usr.alerts) ? usr.alerts.length : 0;
+    var events_length = (usr && usr.events) ? usr.events.length : 0;
 
     //Add buttons to top row
     const main_menu_row = new Discord.MessageActionRow()

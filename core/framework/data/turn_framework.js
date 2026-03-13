@@ -420,7 +420,7 @@ module.exports = {
       is_resigned_user = true;
 
     if (is_resigned_user)
-      main.global.user_map[user_id] = user_id;
+      delete main.global.user_map[user_id];
 
     //Declare local instance variables; make sure to account for user simulations
     var actual_id = (options.is_simulation) ?

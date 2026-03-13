@@ -619,7 +619,7 @@ config.goods = { //[WIP] - Redo mine chances, buy/sell prices
         buy_price: 1800
       },
       pyrolusite: {
-        name: "Pyrlousite",
+        name: "Pyrolusite",
         icon: "pyrolusite",
         type: "normal",
         mine_action_chance: 13, //6,4 million tonnes
